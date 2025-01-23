@@ -7,11 +7,16 @@ Syntax: $0 <QUEUE_FILE>"
 fi
 
 if [ ! -r "$QUEUE_FILE" ]; then
-    echo "Queue file $QUEUE_FILE doesn't exist. Exit."
-    exit 1
+    echo "Queue file $QUEUE_FILE doesn't exist yet."
+    touch "$QUEUE_FILE"
+    if [ "$?" == 0 ]; then
+        echo "Queue file was created!"
+        exit 0
+    else
+        echo "Error. Queue file creation failed."
+        exit 1
+    fi
 fi
-
-wc -l "$QUEUE_FILE"
 
 LOCK_FILE="$QUEUE_FILE.lock"
 QUEUE_FILE_TMP=`mktemp -u`
@@ -26,8 +31,6 @@ touch $QUEUE_FILE_TMP
 
 REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || echo "$0")"
 TELEGRAM_SENDER="$(dirname $REAL_SCRIPT_PATH)/telegram-sender"
-
-wc -l "$QUEUE_FILE"
 
 while IFS= read -r line
 do
