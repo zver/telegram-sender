@@ -38,7 +38,7 @@ ACTUAL_TOKEN=${TELEGRAM_SENDER_TOKEN:-$TOKEN}
 ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/run/telegram-sender-queue"}}
 
 # SEND REQUEST
-HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegramm.org/bot$ACTUAL_TOKEN/sendMessage" \
+HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegram.org/bot$ACTUAL_TOKEN/sendMessage" \
         -d chat_id=$ACTUAL_CHAT_ID \
         --data-urlencode text="$MESSAGE" 2>&1 )
 CURL_RETURN_CODE=$?
