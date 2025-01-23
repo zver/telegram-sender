@@ -1,0 +1,15 @@
+# Place your config file in $HOME/.telegram-sender.conf
+# or in /etc/telegram-sender.conf
+#
+# Telegram settings
+TOKEN="12345678901234567890123456789012345678901234567890"
+CHAT_ID=11111111
+
+# Put msg to queue when send was failed
+USE_QUEUE=1
+QUEUE_FILE="/var/run/telegram-bot-queue"
+
+# Add datetime to first line of message when 
+# cron job get it from queue
+ADD_DATETIME_IN_QUEUE_MSG=1
+QUEUE_DATETIME_FORMAT="%d-%m-%Y %H:%M"

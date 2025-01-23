@@ -1,0 +1,60 @@
+#!/bin/bash
+# CHECK INPUT DATA
+
+function usage() {
+        echo "Usage: $0 <message>"
+}
+MESSAGE="$1"
+if [ -z "$MESSAGE" ]; then
+        #Read from STDIN
+        MESSAGE=$(cat)
+fi
+if [ -z "$MESSAGE" ]; then
+        usage
+        exit 0
+fi
+
+# READ CONFIG
+# TOKEN and CHAT_ID variables must be defined in config file
+CONFIG_HOME="$HOME/.telegram-sender.conf"
+CONFIG_ETC="/etc/telegram-sender.conf"
+if [ -n "$TELEGRAM_SENDER_CONFIG_FILE" ]; then # Check enviroment variable
+        ACTUAL_CONFIG_FILE="$TELEGRAM_SENDER_CONFIG_FILE"
+else
+        if [ -r "$CONFIG_HOME" ]; then
+                ACTUAL_CONFIG_FILE="$CONFIG_HOME"
+        elif [ -r "$CONFIG_ETC" ]; then
+                ACTUAL_CONFIG_FILE="$CONFIG_ETC"
+        else
+                echo "Can not read config from $CONFIG_HOME or $CONFIG_ETC. Exit." >&2
+                exit 1 
+        fi
+fi
+. $ACTUAL_CONFIG_FILE
+
+# Use enviroment variables if specified
+ACTUAL_CHAT_ID=${TELEGRAM_SENDER_CHAT_ID:-$CHAT_ID} 
+ACTUAL_TOKEN=${TELEGRAM_SENDER_TOKEN:-$TOKEN}
+ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/run/telegram-sender-queue"}}
+
+# SEND REQUEST
+HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegramm.org/bot$ACTUAL_TOKEN/sendMessage" \
+        -d chat_id=$ACTUAL_CHAT_ID \
+        --data-urlencode text="$MESSAGE" 2>&1 )
+CURL_RETURN_CODE=$?
+
+ACTUAL_USE_QUEUE=${TELEGRAM_SENDER_USE_QUEUE:-${USE_QUEUE:-1}} #Default value 1, check two vars before
+
+
+if [ "$CURL_RETURN_CODE" != "0" -o "$HTTP_RETURN_CODE" != "200" ]; then
+        if [ "$ACTUAL_USE_QUEUE" == "1" ]; then
+                QUEUE_DIR=`dirname $QUEUE_FILE`
+                test -d "$QUEUE_DIR" || mkdir -p "$QUEUE_DIR"
+                DT_FORMATED=`date "+$QUEUE_DATETIME_FORMAT"`
+                MESSAGE_CHANGED=$(echo $MESSAGE| awk '{printf "%sNEWLINE", $0}') # Change new line char with awk for avoid use sed with -z option, which does not present in BusyBox
+                echo "$DT_FORMATED|$ADD_DATETIME_IN_QUEUE_MSG|$ACTUAL_CHAT_ID|$ACTUAL_CONFIG_FILE|$MESSAGE_CHANGED" >> $ACTUAL_QUEUE_FILE
+                exit 0
+        fi
+        exit 2
+fi
+exit 0

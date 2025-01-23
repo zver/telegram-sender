@@ -1,0 +1,49 @@
+#!/bin/bash
+QUEUE_FILE="$1"
+if [ -z "$QUEUE_FILE" ]; then
+    echo "Script for send telegram messages from queue file.
+Syntax: $0 <QUEUE_FILE>"
+    exit 1
+fi
+
+if [ ! -r "$QUEUE_FILE" ]; then
+    echo "Queue file $QUEUE_FILE doesn't exist. Exit."
+    exit 1
+fi
+
+wc -l "$QUEUE_FILE"
+
+LOCK_FILE="$QUEUE_FILE.lock"
+QUEUE_FILE_TMP=`mktemp -u`
+# Check is Lock File exists, if not create it and set trap on exit
+ if { set -C; 2>/dev/null >$LOCK_FILE; }; then
+    trap "rm -f $LOCK_FILE $QUEUE_FILE_TMP" EXIT
+ else
+    echo "Lock file $LOCK_FILE exists… exiting"
+    exit
+ fi
+touch $QUEUE_FILE_TMP
+
+REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || echo "$0")"
+TELEGRAM_SENDER="$(dirname $REAL_SCRIPT_PATH)/telegram-sender"
+
+wc -l "$QUEUE_FILE"
+
+while IFS= read -r line
+do
+    DT=`echo $line|cut -d\| -f1`
+    ADD_DT=`echo $line|cut -d\| -f2`
+    CHAT_ID=`echo $line|cut -d\| -f3`
+    CONFIG_FILE=`echo $line|cut -d\| -f4`
+    MESSAGE=${line#$DT\|$ADD_DT\|$CHAT_ID\|$CONFIG_FILE\|}
+    if [ -n "$DT" -a -n "$CONFIG_FILE" -a -n "$MESSAGE" ]; then
+        [[ $ADD_DT = 1 ]] && MESSAGE="$DT: $MESSAGE"
+        echo $(echo $MESSAGE|sed -z -e 's/<NEWLINE>/\n/g')|TELEGRAM_SENDER_USE_QUEUE=0 TELEGRAM_BOT_CHAT_ID="$CHAT_ID" TELEGRAM_BOT_CONFIG_FILE="$CONFIG_FILE" $TELEGRAM_BOT
+        if [ "$?" != "0" ]; then
+            echo $line >> $QUEUE_FILE_TMP
+        fi
+        sleep 1
+    fi
+done < "$QUEUE_FILE"
+
+cat "$QUEUE_FILE_TMP" >| "$QUEUE_FILE"
