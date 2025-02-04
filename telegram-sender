@@ -51,7 +51,7 @@ if [ "$CURL_RETURN_CODE" != "0" -o "$HTTP_RETURN_CODE" != "200" ]; then
                 QUEUE_DIR=`dirname $QUEUE_FILE`
                 test -d "$QUEUE_DIR" || mkdir -p "$QUEUE_DIR"
                 DT_FORMATED=`date "+$QUEUE_DATETIME_FORMAT"`
-                MESSAGE_CHANGED=$(echo $MESSAGE| awk '{printf "%sNEWLINE", $0}') # Change new line char with awk for avoid use sed with -z option, which does not present in BusyBox
+                MESSAGE_CHANGED=$(echo $MESSAGE| awk '{printf "%s<NEWLINE>", $0}') # Change new line char with awk for avoid use sed with -z option, which does not present in BusyBox
                 echo "$DT_FORMATED|$ADD_DATETIME_IN_QUEUE_MSG|$ACTUAL_CHAT_ID|$ACTUAL_CONFIG_FILE|$MESSAGE_CHANGED" >> $ACTUAL_QUEUE_FILE
                 exit 0
         fi
