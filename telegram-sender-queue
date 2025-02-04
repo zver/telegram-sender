@@ -40,7 +40,7 @@ do
     CONFIG_FILE=`echo $line|cut -d\| -f4`
     MESSAGE=${line#$DT\|$ADD_DT\|$CHAT_ID\|$CONFIG_FILE\|}
     if [ -n "$DT" -a -n "$CONFIG_FILE" -a -n "$MESSAGE" ]; then
-        [[ $ADD_DT = 1 ]] && MESSAGE="$DT: $MESSAGE"
+        [[ $ADD_DT = 1 ]] && MESSAGE=$(printf "%s<NEWLINE>%s" "$DT" "$MESSAGE")
         echo $(echo $MESSAGE|sed -e 's/<NEWLINE>/\n/g')|TELEGRAM_SENDER_USE_QUEUE=0 TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" $TELEGRAM_SENDER
         if [ "$?" != "0" ]; then
             echo $line >> $QUEUE_FILE_TMP
