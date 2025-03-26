@@ -2,7 +2,8 @@
 # CHECK INPUT DATA
 
 function usage() {
-        echo "Usage: $0 <message>"
+        echo "Usage: $0 <message>
+You can pass message to stdin also."
 }
 MESSAGE="$1"
 if [ -z "$MESSAGE" ]; then
@@ -10,6 +11,8 @@ if [ -z "$MESSAGE" ]; then
         MESSAGE=$(cat)
 fi
 if [ -z "$MESSAGE" ]; then
+        exit 0
+elif [ "$MESSAGE" == "--help" ]; then
         usage
         exit 0
 fi
