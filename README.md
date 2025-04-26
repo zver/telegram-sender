@@ -29,13 +29,16 @@ Send messages from stdin and first param.
 ```bash
 cat /proc/loadavg | telegram-sender
 telegram-sender "Hello from $(hostname) CLI"
+```
 
 Cron job for send messages from all user queue
 
-```cron
+```
 * * * * * find /var/tmp/ -maxdepth 1 -type f -name telegram-sender-queue\* -exec /usr/local/bin/telegram-sender-queue {} \;
+```
 
 Cron job for send messages from ordinary user queue
 
-```cron
+```
 /usr/local/bin/telegram-sender-queue /var/tmp/telegram-sender-queue.myusername
+```
