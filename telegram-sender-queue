@@ -6,16 +6,19 @@ Syntax: $0 <QUEUE_FILE>"
     exit 1
 fi
 
-if [ ! -r "$QUEUE_FILE" ]; then
-    echo "Queue file $QUEUE_FILE doesn't exist yet."
-    touch "$QUEUE_FILE"
-    if [ "$?" == 0 ]; then
-        echo "Queue file was created!"
-        exit 0
-    else
-        echo "Error. Queue file creation failed."
-        exit 1
+# Switch to queue file owner if the script has root power
+if [ "$(id -u)" -eq 0 ]; then
+    QUEUE_FILE_OWNER=$(stat -c '%U' "$QUEUE_FILE")
+    if [ "$QUEUE_FILE_OWNER" != "root" ]; then
+        echo "Switch to queue file owner $QUEUE_FILE_OWNER..."
+        exec sudo -u "$QUEUE_FILE_OWNER" "$0" "$@"
+        exit $?
     fi
+fi
+
+if [ ! -r "$QUEUE_FILE" ]; then
+    echo "Error. Can not read from $QUEUE_FILE file."
+    exit 1
 fi
 
 LOCK_FILE="$QUEUE_FILE.lock"

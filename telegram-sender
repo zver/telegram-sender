@@ -38,7 +38,7 @@ fi
 # Use enviroment variables if specified
 ACTUAL_CHAT_ID=${TELEGRAM_SENDER_CHAT_ID:-$CHAT_ID} 
 ACTUAL_TOKEN=${TELEGRAM_SENDER_TOKEN:-$TOKEN}
-ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/run/telegram-sender-queue"}}
+ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/run/telegram-sender-queue.$USER"}}
 
 # SEND REQUEST
 HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegram.org/bot$ACTUAL_TOKEN/sendMessage" \
