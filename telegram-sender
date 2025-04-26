@@ -38,7 +38,7 @@ fi
 # Use enviroment variables if specified
 ACTUAL_CHAT_ID=${TELEGRAM_SENDER_CHAT_ID:-$CHAT_ID} 
 ACTUAL_TOKEN=${TELEGRAM_SENDER_TOKEN:-$TOKEN}
-ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/run/telegram-sender-queue.$USER"}}
+ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/tmp/telegram-sender-queue.$USER"}}
 
 # SEND REQUEST
 HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegram.org/bot$ACTUAL_TOKEN/sendMessage" \
@@ -51,7 +51,7 @@ ACTUAL_USE_QUEUE=${TELEGRAM_SENDER_USE_QUEUE:-${USE_QUEUE:-1}} #Default value 1,
 
 if [ "$CURL_RETURN_CODE" != "0" -o "$HTTP_RETURN_CODE" != "200" ]; then
         if [ "$ACTUAL_USE_QUEUE" == "1" ]; then
-                QUEUE_DIR=`dirname $QUEUE_FILE`
+                QUEUE_DIR=`dirname $ACTUAL_QUEUE_FILE`
                 test -d "$QUEUE_DIR" || mkdir -p "$QUEUE_DIR"
                 DT_FORMATED=`date "+$QUEUE_DATETIME_FORMAT"`
                 MESSAGE_CHANGED=$(echo "$MESSAGE"| awk '{printf "%s<NEWLINE>", $0}') # Change new line char with awk for avoid use sed with -z option, which does not present in BusyBox
