@@ -1,10 +1,11 @@
 #!/bin/bash
+#
 # CHECK INPUT DATA
-
 function usage() {
         echo "Usage: $0 <message>
 You can pass message to stdin also."
 }
+
 MESSAGE="$1"
 if [ -z "$MESSAGE" ]; then
         #Read from STDIN
@@ -38,7 +39,7 @@ fi
 # Use enviroment variables if specified
 ACTUAL_CHAT_ID=${TELEGRAM_SENDER_CHAT_ID:-$CHAT_ID} 
 ACTUAL_TOKEN=${TELEGRAM_SENDER_TOKEN:-$TOKEN}
-ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/tmp/telegram-sender-queue.$USER"}}
+ACTUAL_QUEUE_FILE=${TELEGRAM_SENDER_QUEUE_FILE:-${QUEUE_FILE:-"/var/tmp/telegram-sender-queue.$(id -un)"}}
 
 # SEND REQUEST
 HTTP_RETURN_CODE=$(curl -w "%{http_code}" -s -q -o /dev/null -X POST "https://api.telegram.org/bot$ACTUAL_TOKEN/sendMessage" \
