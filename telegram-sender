@@ -38,13 +38,12 @@ PHOTO_PATH=${TELEGRAM_SENDER_PHOTO_FILE:-$PHOTO_PATH}
 PHOTO_CAPTION=${TELEGRAM_SENDER_CAPTION:-$PHOTO_CAPTION}
 
 MESSAGE="${POSITIONAL_ARGS[*]}"
-if [ -z "$MESSAGE" ]; then
-        #Read from STDIN
+# Only read from STDIN if not in photo mode (photo mode uses --caption, not message)
+if [ -z "$MESSAGE" ] && [ -z "$PHOTO_PATH" ]; then
         MESSAGE=$(cat)
 fi
-if [ -z "$MESSAGE" ]; then
-        exit 0
-elif [ "$MESSAGE" == "--help" ]; then
+
+if [ "$MESSAGE" == "--help" ]; then
         usage
         exit 0
 fi
