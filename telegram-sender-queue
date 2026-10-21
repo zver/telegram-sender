@@ -30,15 +30,18 @@ if [[ "$(id -u)" -eq 0 ]]; then
     fi
 fi
 
-# Lock file for exclusive execution
-LOCK_FILE="${QUEUE_FILE}.lock"
-QUEUE_FILE_TMP="$(mktemp)"
-trap 'rm -f "$LOCK_FILE" "$QUEUE_FILE_TMP"' EXIT
 
-if ! set -C 2>/dev/null >"$LOCK_FILE"; then
-    echo "Error: lock file $LOCK_FILE exists (another instance running?)" >&2
-    exit 1
+LOCK_FILE="$QUEUE_FILE.lock"
+QUEUE_FILE_TMP=`mktemp -u`
+# Check is Lock File exists, if not create it and set trap on exit
+if { set -C; 2>/dev/null >$LOCK_FILE; }; then
+    trap "rm -f $LOCK_FILE $QUEUE_FILE_TMP" EXIT
+else
+    echo "Lock file $LOCK_FILE exists… exiting"
+    exit
 fi
+touch $QUEUE_FILE_TMP
+
 
 # Paths
 REAL_SCRIPT_PATH="$(readlink -f -- "$0" 2>/dev/null || echo "$0")"
@@ -134,8 +137,4 @@ while IFS= read -r line; do
     process_queue_entry "$line"
 done < "$QUEUE_FILE"
 
-# Replace original queue with remaining entries
-mv "$QUEUE_FILE_TMP" "$QUEUE_FILE" 2>/dev/null || {
-    cat "$QUEUE_FILE_TMP" > "$QUEUE_FILE"
-    rm -f "$QUEUE_FILE_TMP"
-}
+cat "$QUEUE_FILE_TMP" >| "$QUEUE_FILE"

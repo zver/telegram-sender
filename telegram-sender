@@ -107,8 +107,8 @@ if [ "$CURL_RETURN_CODE" != "0" -o "$HTTP_RETURN_CODE" != "200" ]; then
                 if [ -n "$PHOTO_PATH" ]; then
                         # Move photo into queue dir so queue script can find it later
                         PHOTO_BASENAME=$(basename "$PHOTO_PATH")
-                        PHOTO_QUEUE_NAME="${DT_FORMATED//:/}-$(date +%s%N | tail -c 6)-$PHOTO_BASENAME"
-                        mv "$PHOTO_PATH" "$ACTUAL_QUEUE_DIR/$PHOTO_QUEUE_NAME"
+                        PHOTO_QUEUE_NAME="${DT_FORMATED//[: ]/_}-$(date +%s%N | tail -c 6)-$PHOTO_BASENAME"
+                        cp "$PHOTO_PATH" "$ACTUAL_QUEUE_DIR/$PHOTO_QUEUE_NAME"
                         echo "$DT_FORMATED|$ADD_DATETIME_IN_QUEUE_MSG|$ACTUAL_CHAT_ID|$ACTUAL_CONFIG_FILE|$PHOTO_QUEUE_NAME|$PHOTO_CAPTION" >> "$ACTUAL_QUEUE_FILE"
                 else
                         # Change new line char with awk for avoid use sed with -z option, which does not present in BusyBox
