@@ -44,10 +44,10 @@ touch $QUEUE_FILE_TMP
 
 
 # Paths
-REAL_SCRIPT_PATH="$(readlink -f -- "$0" 2>/dev/null || echo "$0")"
+REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || echo "$0")"
 TELEGRAM_SENDER="$(dirname "$REAL_SCRIPT_PATH")/telegram-sender"
-QUEUE_PHOTO_DIR="$(dirname "$QUEUE_FILE")/telegram-sender-queue-files"
-mkdir -p "$QUEUE_PHOTO_DIR" 2>/dev/null || true
+ACTUAL_QUEUE_DIR=${TELEGRAM_SENDER_QUEUE_DIR:-${QUEUE_DIR:-"$(dirname "$QUEUE_FILE")/telegram-sender-queue-files.$(id -un)"}}
+mkdir -p "$ACTUAL_QUEUE_DIR" 2>/dev/null || true
 
 # Process a single queue entry (line from queue file)
 # Detects 6-field photo entries vs 5-field text entries
@@ -82,7 +82,7 @@ process_queue_entry() {
         PHOTO_QUEUE_NAME="$FIELD5"
         PHOTO_CAPTION="${FIELD6:-}"
 
-        local FULL_PHOTO_PATH="$QUEUE_PHOTO_DIR/$PHOTO_QUEUE_NAME"
+        local FULL_PHOTO_PATH="$ACTUAL_QUEUE_DIR/$PHOTO_QUEUE_NAME"
         if [[ ! -f "$FULL_PHOTO_PATH" ]]; then
             echo "Warning: photo file not found: $FULL_PHOTO_PATH — queueing for retry" >&2
             return 1
@@ -97,7 +97,7 @@ process_queue_entry() {
             TELEGRAM_SENDER_PHOTO_FILE="$FULL_PHOTO_PATH" \
             TELEGRAM_SENDER_CAPTION="$PHOTO_CAPTION" \
             "$TELEGRAM_SENDER" || RET=$?
-
+        echo "PHOTO RET: $RET"
         if [[ $RET -eq 0 ]]; then
             rm -f "$FULL_PHOTO_PATH"
             return 0
