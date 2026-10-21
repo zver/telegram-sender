@@ -1,69 +1,141 @@
 #!/bin/bash
-if [ "$1" == "--help" ]; then
-    echo "Send Telegram messages from a queue file.
+# Telegram message queue processor
+#
+# Queue formats:
+#   Text (5 fields): DT|ADD_DT|CHAT_ID|CONFIG_FILE|MESSAGE
+#   Photo (6 fields): DT|ADD_DT|CHAT_ID|CONFIG_FILE|PHOTO_QUEUE_NAME|CAPTION
 
-Usage:
+if [[ "${1:-}" == "--help" ]]; then
+    echo "Send Telegram messages from a queue file.\nUsage:
   $0 [QUEUE_FILE|--help]
 
 If no QUEUE_FILE is specified, a default file in /var/tmp is used."
     exit 1
 fi
 
-QUEUE_FILE="$1"
+QUEUE_FILE="${1:-/var/tmp/telegram-sender-queue.$(id -un)}"
 
-if [ -z "$QUEUE_FILE" ]; then
-    QUEUE_FILE="/var/tmp/telegram-sender-queue.$(id -un)"
-fi
-
-if [ ! -r "$QUEUE_FILE" ]; then
-    echo "Can not read queue file $QUEUE_FILE"
+if [[ ! -r "$QUEUE_FILE" ]]; then
+    echo "Error: cannot read from $QUEUE_FILE" >&2
     exit 1
 fi
 
-# Switch to queue file owner if the script has root power
-if [ "$(id -u)" -eq 0 ]; then
+# Switch to queue file owner if running as root
+if [[ "$(id -u)" -eq 0 ]]; then
     QUEUE_FILE_OWNER=$(stat -c '%U' "$QUEUE_FILE")
-    if [ "$QUEUE_FILE_OWNER" != "root" ]; then
-        echo "Switch to queue file owner $QUEUE_FILE_OWNER..."
-        exec sudo -u "$QUEUE_FILE_OWNER" "$0" "$@"
+    if [[ "$QUEUE_FILE_OWNER" != "root" ]]; then
+        echo "Switching to queue file owner: $QUEUE_FILE_OWNER..."
+        exec sudo -u "$QUEUE_FILE_OWNER" -- "$0" "$@"
         exit $?
     fi
 fi
 
-if [ ! -r "$QUEUE_FILE" ]; then
-    echo "Error. Can not read from $QUEUE_FILE file."
+# Lock file for exclusive execution
+LOCK_FILE="${QUEUE_FILE}.lock"
+QUEUE_FILE_TMP="$(mktemp)"
+trap 'rm -f "$LOCK_FILE" "$QUEUE_FILE_TMP"' EXIT
+
+if ! set -C 2>/dev/null >"$LOCK_FILE"; then
+    echo "Error: lock file $LOCK_FILE exists (another instance running?)" >&2
     exit 1
 fi
 
-LOCK_FILE="$QUEUE_FILE.lock"
-QUEUE_FILE_TMP=`mktemp -u`
-# Check is Lock File exists, if not create it and set trap on exit
- if { set -C; 2>/dev/null >$LOCK_FILE; }; then
-    trap "rm -f $LOCK_FILE $QUEUE_FILE_TMP" EXIT
- else
-    echo "Lock file $LOCK_FILE exists… exiting"
-    exit
- fi
-touch $QUEUE_FILE_TMP
+# Paths
+REAL_SCRIPT_PATH="$(readlink -f -- "$0" 2>/dev/null || echo "$0")"
+TELEGRAM_SENDER="$(dirname "$REAL_SCRIPT_PATH")/telegram-sender"
+QUEUE_PHOTO_DIR="$(dirname "$QUEUE_FILE")/telegram-sender-queue-files"
+mkdir -p "$QUEUE_PHOTO_DIR" 2>/dev/null || true
 
-REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || echo "$0")"
-TELEGRAM_SENDER="$(dirname $REAL_SCRIPT_PATH)/telegram-sender"
+# Process a single queue entry (line from queue file)
+# Detects 6-field photo entries vs 5-field text entries
+process_queue_entry() {
+    local LINE="$1"
+    local DT ADD_DT CHAT_ID CONFIG_FILE FIELDS
+    local FIELD5 FIELD6 PHOTO_QUEUE_NAME PHOTO_CAPTION DT_TEXT
 
-while IFS= read -r line
-do
-    DT=`echo $line|cut -d\| -f1`
-    ADD_DT=`echo $line|cut -d\| -f2`
-    CHAT_ID=`echo $line|cut -d\| -f3`
-    CONFIG_FILE=`echo $line|cut -d\| -f4`
-    MESSAGE=${line#$DT\|$ADD_DT\|$CHAT_ID\|$CONFIG_FILE\|}
-    if [ -n "$DT" -a -n "$CONFIG_FILE" -a -n "$MESSAGE" ]; then
-        [[ $ADD_DT = 1 ]] && MESSAGE=$(printf "%s<NEWLINE>%s" "$DT" "$MESSAGE")
-        echo "$(echo $MESSAGE|sed -e 's/<NEWLINE>/\n/g')"|TELEGRAM_SENDER_USE_QUEUE=0 TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" $TELEGRAM_SENDER
-        if [ "$?" != "0" ]; then
-            echo $line >> $QUEUE_FILE_TMP
-        fi
-        sleep 1
+    # Count pipe-separated fields to detect photo vs text
+    FIELDS=$(awk -F'|' '{print NF}' <<< "$LINE")
+    DT="$(echo "$LINE" | cut -d'|' -f1)"
+    ADD_DT="$(echo "$LINE" | cut -d'|' -f2)"
+    CHAT_ID="$(echo "$LINE" | cut -d'|' -f3)"
+    CONFIG_FILE="$(echo "$LINE" | cut -d'|' -f4)"
+    FIELD5="$(echo "$LINE" | cut -d'|' -f5)"
+    FIELD6="$(echo "$LINE" | cut -d'|' -f6)"
+
+    [[ -z "$DT" || -z "$CONFIG_FILE" ]] && {
+        echo "Skipping malformed entry: $LINE" >&2
+        return 1
+    }
+
+    # Prepend datetime if configured
+    if [[ "${ADD_DT:-0}" == "1" && -n "$DT" ]]; then
+        DT_TEXT="[$DT] "
+    else
+        DT_TEXT=""
     fi
+
+    if [[ "$FIELDS" -ge 6 ]]; then
+        # Photo entry: field 5 = photo queue name, field 6 = caption (may be empty)
+        PHOTO_QUEUE_NAME="$FIELD5"
+        PHOTO_CAPTION="${FIELD6:-}"
+
+        local FULL_PHOTO_PATH="$QUEUE_PHOTO_DIR/$PHOTO_QUEUE_NAME"
+        if [[ ! -f "$FULL_PHOTO_PATH" ]]; then
+            echo "Warning: photo file not found: $FULL_PHOTO_PATH — queueing for retry" >&2
+            return 1
+        fi
+
+        echo -e "${DT_TEXT}[SEND PHOTO] $PHOTO_QUEUE_NAME" >&2
+
+        local RET=0
+        TELEGRAM_SENDER_USE_QUEUE=0 \
+            TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
+            TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
+            TELEGRAM_SENDER_PHOTO_FILE="$FULL_PHOTO_PATH" \
+            TELEGRAM_SENDER_CAPTION="$PHOTO_CAPTION" \
+            "$TELEGRAM_SENDER" || RET=$?
+
+        if [[ $RET -eq 0 ]]; then
+            rm -f "$FULL_PHOTO_PATH"
+            return 0
+        fi
+
+        # Failed — requeue
+        echo "$LINE" >> "$QUEUE_FILE_TMP"
+        return 1
+    else
+        # Text entry: field 5 = message (multi-line encoded as <NEWLINE>)
+        local MESSAGE="$FIELD5"
+
+        # Decode encoded newlines for display
+        local DISPLAY_MSG
+        DISPLAY_MSG="$(echo "$MESSAGE" | sed 's/<NEWLINE>/\\n/g')"
+
+        echo -e "${DT_TEXT}${DISPLAY_MSG}" >&2
+
+        local RET=0
+        TELEGRAM_SENDER_USE_QUEUE=0 \
+            TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
+            TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
+            printf '%s' "$MESSAGE" | sed 's/<NEWLINE>/\n/g' | "$TELEGRAM_SENDER" || RET=$?
+
+        if [[ $RET -ne 0 ]]; then
+            # Failed — requeue
+            echo "$LINE" >> "$QUEUE_FILE_TMP"
+            return 1
+        fi
+        return 0
+    fi
+}
+
+# Read and process queue entries
+while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    process_queue_entry "$line"
 done < "$QUEUE_FILE"
 
-cat "$QUEUE_FILE_TMP" >| "$QUEUE_FILE"
+# Replace original queue with remaining entries
+mv "$QUEUE_FILE_TMP" "$QUEUE_FILE" 2>/dev/null || {
+    cat "$QUEUE_FILE_TMP" > "$QUEUE_FILE"
+    rm -f "$QUEUE_FILE_TMP"
+}
