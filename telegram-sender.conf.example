@@ -9,6 +9,7 @@ PROXY=""
 # Put msg to queue when send was failed
 USE_QUEUE=1
 QUEUE_FILE="/var/run/telegram-bot-queue"
+QUEUE_DIR="/var/run/telegram-bot-queue-files"
 
 # Add datetime to first line of message when 
 # cron job get it from queue
