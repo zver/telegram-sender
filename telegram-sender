@@ -43,6 +43,12 @@ if [ -z "$MESSAGE" ] && [ -z "$PHOTO_PATH" ]; then
         MESSAGE=$(cat)
 fi
 
+# Check if MESSAGE contains only whitespace a/or newline chars
+if [[ "$MESSAGE" =~ ^[[:space:]]*$ ]]; then
+        echo "Error: message is empty or contains only whitespace" >&2
+        exit 1
+fi
+
 if [ "$MESSAGE" == "--help" ]; then
         usage
         exit 0
