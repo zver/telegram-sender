@@ -117,10 +117,13 @@ process_queue_entry() {
         echo -e "${DT_TEXT}${DISPLAY_MSG}" >&2
 
         local RET=0
-        TELEGRAM_SENDER_USE_QUEUE=0 \
-            TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
-            TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
-            printf '%s' "$MESSAGE" | sed 's/<NEWLINE>/\n/g' | "$TELEGRAM_SENDER" || RET=$?
+        printf '%s' "$MESSAGE" |
+            sed 's/<NEWLINE>/\n/g' |
+            env \
+                TELEGRAM_SENDER_USE_QUEUE=0 \
+                TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
+                TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
+                "$TELEGRAM_SENDER" || RET=$?
 
         if [[ $RET -ne 0 ]]; then
             # Failed — requeue
