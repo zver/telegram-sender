@@ -44,7 +44,7 @@ touch $QUEUE_FILE_TMP
 
 
 # Paths
-REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || echo "$0")"
+REAL_SCRIPT_PATH="$(test -L "$0" && readlink "$0" || which "$0")"
 TELEGRAM_SENDER="$(dirname "$REAL_SCRIPT_PATH")/telegram-sender"
 ACTUAL_QUEUE_DIR=${TELEGRAM_SENDER_QUEUE_DIR:-${QUEUE_DIR:-"$(dirname "$QUEUE_FILE")/telegram-sender-queue-files.$(id -un)"}}
 mkdir -p "$ACTUAL_QUEUE_DIR" 2>/dev/null || true
