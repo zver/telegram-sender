@@ -3,7 +3,8 @@
 #
 # Queue formats:
 #   Text (5 fields): DT|ADD_DT|CHAT_ID|CONFIG_FILE|MESSAGE
-#   Photo (6 fields): DT|ADD_DT|CHAT_ID|CONFIG_FILE|PHOTO_QUEUE_NAME|CAPTION
+#   Media (6 fields): DT|ADD_DT|CHAT_ID|CONFIG_FILE|MEDIA_QUEUE_NAME|CAPTION
+#     where MEDIA_QUEUE_NAME ends in .photo (photo) or .video (video)
 
 if [[ "${1:-}" == "--help" ]]; then
     echo "Send Telegram messages from a queue file.\nUsage:
@@ -78,34 +79,69 @@ process_queue_entry() {
     fi
 
     if [[ "$FIELDS" -ge 6 ]]; then
-        # Photo entry: field 5 = photo queue name, field 6 = caption (may be empty)
-        PHOTO_QUEUE_NAME="$FIELD5"
-        PHOTO_CAPTION="${FIELD6:-}"
+        # Media entry: field 5 = media queue name, field 6 = caption (may be empty)
+        MEDIA_QUEUE_NAME="$FIELD5"
+        MEDIA_CAPTION="${FIELD6:-}"
 
-        local FULL_PHOTO_PATH="$ACTUAL_QUEUE_DIR/$PHOTO_QUEUE_NAME"
-        if [[ ! -f "$FULL_PHOTO_PATH" ]]; then
-            echo "Warning: photo file not found: $FULL_PHOTO_PATH — queueing for retry" >&2
-            return 1
-        fi
+        # Distinguish photo (.photo suffix) from video (.video suffix) entries
+        case "$MEDIA_QUEUE_NAME" in
+            *.photo)
+                FULL_MEDIA_PATH="$ACTUAL_QUEUE_DIR/$MEDIA_QUEUE_NAME"
+                if [[ ! -f "$FULL_MEDIA_PATH" ]]; then
+                    echo "Warning: photo file not found: $FULL_MEDIA_PATH — queueing for retry" >&2
+                    return 1
+                fi
 
-        echo -e "${DT_TEXT}[SEND PHOTO] $PHOTO_QUEUE_NAME" >&2
+                echo -e "${DT_TEXT}[SEND PHOTO] $MEDIA_QUEUE_NAME" >&2
 
-        local RET=0
-        TELEGRAM_SENDER_USE_QUEUE=0 \
-            TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
-            TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
-            TELEGRAM_SENDER_PHOTO_FILE="$FULL_PHOTO_PATH" \
-            TELEGRAM_SENDER_CAPTION="$PHOTO_CAPTION" \
-            "$TELEGRAM_SENDER" || RET=$?
-        echo "PHOTO RET: $RET"
-        if [[ $RET -eq 0 ]]; then
-            rm -f "$FULL_PHOTO_PATH"
-            return 0
-        fi
+                local RET=0
+                TELEGRAM_SENDER_USE_QUEUE=0 \
+                    TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
+                    TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
+                    TELEGRAM_SENDER_PHOTO_FILE="$FULL_MEDIA_PATH" \
+                    TELEGRAM_SENDER_CAPTION="$MEDIA_CAPTION" \
+                    "$TELEGRAM_SENDER" || RET=$?
+                echo "PHOTO RET: $RET"
+                if [[ $RET -eq 0 ]]; then
+                    rm -f "$FULL_MEDIA_PATH"
+                    return 0
+                fi
 
-        # Failed — requeue
-        echo "$LINE" >> "$QUEUE_FILE_TMP"
-        return 1
+                # Failed — requeue
+                echo "$LINE" >> "$QUEUE_FILE_TMP"
+                return 1
+                ;;
+            *.video)
+                FULL_MEDIA_PATH="$ACTUAL_QUEUE_DIR/$MEDIA_QUEUE_NAME"
+                if [[ ! -f "$FULL_MEDIA_PATH" ]]; then
+                    echo "Warning: video file not found: $FULL_MEDIA_PATH — queueing for retry" >&2
+                    return 1
+                fi
+
+                echo -e "${DT_TEXT}[SEND VIDEO] $MEDIA_QUEUE_NAME" >&2
+
+                local RET=0
+                    TELEGRAM_SENDER_USE_QUEUE=0 \
+                    TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
+                    TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
+                    TELEGRAM_SENDER_VIDEO_FILE="$FULL_MEDIA_PATH" \
+                    TELEGRAM_SENDER_CAPTION="$MEDIA_CAPTION" \
+                    "$TELEGRAM_SENDER" || RET=$?
+                echo "VIDEO RET: $RET"
+                if [[ $RET -eq 0 ]]; then
+                    rm -f "$FULL_MEDIA_PATH"
+                    return 0
+                fi
+
+                # Failed — requeue
+                echo "$LINE" >> "$QUEUE_FILE_TMP"
+                return 1
+                ;;
+            *)
+                echo "Warning: unknown media queue file extension: $MEDIA_QUEUE_NAME — skipping" >&2
+                return 1
+                ;;
+        esac
     else
         # Text entry: field 5 = message (multi-line encoded as <NEWLINE>)
         local MESSAGE="$FIELD5"
