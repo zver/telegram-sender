@@ -31,6 +31,13 @@ cat /proc/loadavg | telegram-sender
 telegram-sender "Hello from $(hostname) CLI"
 ```
 
+Send a photo or a video file with an optional caption via the `--photo`/`--video` flags.
+
+```bash
+telegram-sender --photo /path/to/image.jpg --caption "Photo caption"
+telegram-sender --video /path/to/movie.mp4 --caption "Video caption"
+```
+
 Cron job for send messages from all user queue
 
 ```
