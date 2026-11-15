@@ -95,12 +95,12 @@ process_queue_entry() {
                 echo -e "${DT_TEXT}[SEND PHOTO] $MEDIA_QUEUE_NAME" >&2
 
                 local RET=0
-                TELEGRAM_SENDER_USE_QUEUE=0 \
+                local CAP_ARG=()
+                [ -n "$MEDIA_CAPTION" ] && CAP_ARG=(--caption "$MEDIA_CAPTION")
+                    TELEGRAM_SENDER_USE_QUEUE=0 \
                     TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
                     TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
-                    TELEGRAM_SENDER_PHOTO_FILE="$FULL_MEDIA_PATH" \
-                    TELEGRAM_SENDER_CAPTION="$MEDIA_CAPTION" \
-                    "$TELEGRAM_SENDER" || RET=$?
+                    "$TELEGRAM_SENDER" --photo "$FULL_MEDIA_PATH" "${CAP_ARG[@]}" || RET=$?
                 echo "PHOTO RET: $RET"
                 if [[ $RET -eq 0 ]]; then
                     rm -f "$FULL_MEDIA_PATH"
@@ -121,12 +121,12 @@ process_queue_entry() {
                 echo -e "${DT_TEXT}[SEND VIDEO] $MEDIA_QUEUE_NAME" >&2
 
                 local RET=0
+                local CAP_ARG=()
+                [ -n "$MEDIA_CAPTION" ] && CAP_ARG=(--caption "$MEDIA_CAPTION")
                     TELEGRAM_SENDER_USE_QUEUE=0 \
                     TELEGRAM_SENDER_CHAT_ID="$CHAT_ID" \
                     TELEGRAM_SENDER_CONFIG_FILE="$CONFIG_FILE" \
-                    TELEGRAM_SENDER_VIDEO_FILE="$FULL_MEDIA_PATH" \
-                    TELEGRAM_SENDER_CAPTION="$MEDIA_CAPTION" \
-                    "$TELEGRAM_SENDER" || RET=$?
+                    "$TELEGRAM_SENDER" --video "$FULL_MEDIA_PATH" "${CAP_ARG[@]}" || RET=$?
                 echo "VIDEO RET: $RET"
                 if [[ $RET -eq 0 ]]; then
                     rm -f "$FULL_MEDIA_PATH"

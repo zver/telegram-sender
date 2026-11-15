@@ -53,13 +53,7 @@ done
 [ -n "$PHOTO_CAPTION" ] && [ -z "$PHOTO_PATH" ] && { echo "Error: --caption needs --photo" >&2; exit 1; }
 [ -n "$VIDEO_CAPTION" ] && [ -z "$VIDEO_PATH" ] && { echo "Error: --caption needs --video" >&2; exit 1; }
 
-# Override from queue (env vars) if present
-PHOTO_PATH=${TELEGRAM_SENDER_PHOTO_FILE:-$PHOTO_PATH}
-PHOTO_CAPTION=${TELEGRAM_SENDER_CAPTION:-$PHOTO_CAPTION}
-VIDEO_PATH=${TELEGRAM_SENDER_VIDEO_FILE:-$VIDEO_PATH}
-if [ -n "$VIDEO_PATH" ]; then
-        VIDEO_CAPTION=${TELEGRAM_SENDER_CAPTION:-$VIDEO_CAPTION}
-fi
+# Media flags (--photo/--video/--caption) are passed by the queue processor via CLI
 
 MESSAGE="${POSITIONAL_ARGS[*]}"
 # Only read from STDIN if not in photo/video mode (photo/video mode uses --caption, not message)
