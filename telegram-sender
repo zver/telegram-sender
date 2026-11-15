@@ -67,10 +67,7 @@ if [[ "$MESSAGE" =~ ^[[:space:]]*$ ]]; then
                 echo "Error: message is empty or contains only whitespace" >&2
                 exit 1
         else
-                if [[ -z "PHOTO_PATH" ]]; then
-                        exit 0
-                fi
-                if [[ -z "$VIDEO_PATH" ]]; then
+                if [[ -z "$PHOTO_PATH" && -z "$VIDEO_PATH" ]]; then
                         exit 0
                 fi
         fi
